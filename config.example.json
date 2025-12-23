@@ -1,0 +1,20 @@
+{
+  "claude_bin": "/opt/homebrew/bin/claude",
+  "model": "claude-haiku-4-5",
+  "prompt": "hi",
+  "log_file": "~/logs/claude_keepalive.log",
+  "accounts": [
+    {
+      "name": "account-1",
+      "config_dir": "~/.claude-account-1",
+      "org_id": "your-org-id-here",
+      "session_key": "sk-ant-sid01-..."
+    },
+    {
+      "name": "account-2",
+      "config_dir": "~/.claude-account-2",
+      "org_id": "your-org-id-here",
+      "session_key": "sk-ant-sid01-..."
+    }
+  ]
+}

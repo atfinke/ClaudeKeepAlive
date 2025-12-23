@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.claude.keepalive</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/python</string>
+    <string>/path/to/claude_keepalive.py</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Minute</key>
+    <integer>59</integer>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>WorkingDirectory</key>
+  <string>/path/to/ClaudeKeepAlive</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/YOUR_USERNAME</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/YOUR_USERNAME/logs/keepalive.out</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/YOUR_USERNAME/logs/keepalive.err</string>
+</dict>
+</plist>
