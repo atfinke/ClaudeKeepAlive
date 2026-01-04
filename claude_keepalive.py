@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess
 import json
+import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict
@@ -32,7 +33,7 @@ def log(message: str, log_file: Optional[str]) -> None:
             f.write(f"{timestamp} - {message}\n")
 
 
-def fetch_usage(org_id: str, session_key: str, log_file: Optional[str]) -> Optional[Dict]:
+def fetch_usage(org_id: str, session_key: str, log_file: Optional[str], test_mode: bool = False, account_name: str = "") -> Optional[Dict]:
     """Fetch usage data from Claude API."""
     url = f"https://claude.ai/api/organizations/{org_id}/usage"
 
@@ -50,16 +51,25 @@ def fetch_usage(org_id: str, session_key: str, log_file: Optional[str]) -> Optio
             impersonate="chrome110",
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        if test_mode:
+            log(f"[{account_name}] ✓ API credentials valid (HTTP {response.status_code})", log_file)
+
+        return data
     except Exception as e:
-        log(f"Failed to fetch usage: {e}", log_file)
+        log(f"[{account_name}] Failed to fetch usage: {e}", log_file)
         return None
 
 
-def should_send_keepalive(usage: Dict, account_name: str, log_file: Optional[str]) -> bool:
+def should_send_keepalive(usage: Dict, account_name: str, log_file: Optional[str], force: bool = False) -> bool:
     """Determine if keepalive prompt should be sent."""
     five_hour = usage.get("five_hour", {})
     resets_at = five_hour.get("resets_at")
+
+    if force:
+        log(f"[{account_name}] Test mode - forcing keepalive (reset boundary: {resets_at or 'none'})", log_file)
+        return True
 
     if not resets_at:
         log(f"[{account_name}] No reset boundary - sending keepalive", log_file)
@@ -99,7 +109,7 @@ def send_prompt(config_dir: Path, claude_bin: str, model: str, prompt: str, log_
         return False
 
 
-def process_account(account: Dict, config: Dict) -> None:
+def process_account(account: Dict, config: Dict, test_mode: bool = False) -> None:
     """Process a single account."""
     name = account["name"]
     config_dir = Path(account["config_dir"]).expanduser()
@@ -115,11 +125,11 @@ def process_account(account: Dict, config: Dict) -> None:
         log(f"[{name}] Config directory missing: {config_dir}", log_file)
         return
 
-    usage = fetch_usage(org_id, session_key, log_file)
+    usage = fetch_usage(org_id, session_key, log_file, test_mode=test_mode, account_name=name)
     if not usage:
         return
 
-    if not should_send_keepalive(usage, name, log_file):
+    if not should_send_keepalive(usage, name, log_file, force=test_mode):
         return
 
     send_prompt(
@@ -133,13 +143,24 @@ def process_account(account: Dict, config: Dict) -> None:
 
 def main() -> None:
     """Main execution flow."""
+    parser = argparse.ArgumentParser(
+        description="Claude Code keepalive automation"
+    )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Test mode: force send keepalive to all accounts regardless of reset boundary",
+    )
+    args = parser.parse_args()
+
     config = load_config()
     log_file = config.get("log_file")
 
-    log("Starting keepalive check", log_file)
+    mode = "test mode" if args.test else "normal mode"
+    log(f"Starting keepalive check ({mode})", log_file)
 
     for account in config.get("accounts", []):
-        process_account(account, config)
+        process_account(account, config, test_mode=args.test)
 
     log("Keepalive complete", log_file)
 

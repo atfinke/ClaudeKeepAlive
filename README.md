@@ -51,6 +51,19 @@ launchctl load ~/Library/LaunchAgents/com.claude.keepalive.plist
 
 Find python path: `which python` (while in conda env)
 
+## Testing
+
+Test that all accounts are properly configured and can send messages:
+
+```bash
+claude_keepalive.py --test
+```
+
+This will:
+- Verify each account can fetch usage data (tests org_id and session_key)
+- Force send a keepalive prompt to each account (tests config_dir and authentication)
+- Log all activity to `~/logs/claude_keepalive.log`
+
 ## Logs
 
 ```bash
