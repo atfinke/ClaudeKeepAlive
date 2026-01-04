@@ -1,6 +1,8 @@
 # Claude Code Keepalive
 
-Sends minimal keepalive prompts to preserve Claude.ai 5-hour rate limit reset boundaries. Runs at minute 59 of every hour, only when no reset boundary exists yet.
+Sends minimal keepalive prompts to preserve Claude.ai 5-hour rate limit reset boundaries. Scheduled to run at minute 50 of every hour, only when no reset boundary exists yet.
+
+**Note:** When the Mac sleeps, launchd runs missed jobs upon wake. Timing may be delayed, but the script includes network stabilization delays and retry logic to ensure reliability.
 
 ## Requirements
 
