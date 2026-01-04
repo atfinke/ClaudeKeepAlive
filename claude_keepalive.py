@@ -34,7 +34,9 @@ def log(message: str, log_file: Optional[str]) -> None:
 
 
 def fetch_usage(org_id: str, session_key: str, log_file: Optional[str], test_mode: bool = False, account_name: str = "") -> Optional[Dict]:
-    """Fetch usage data from Claude API."""
+    """Fetch usage data from Claude API with retry logic for network issues."""
+    import time
+
     url = f"https://claude.ai/api/organizations/{org_id}/usage"
 
     headers = {
@@ -43,23 +45,32 @@ def fetch_usage(org_id: str, session_key: str, log_file: Optional[str], test_mod
         "Cookie": f"sessionKey={session_key}",
     }
 
-    try:
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=10,
-            impersonate="chrome110",
-        )
-        response.raise_for_status()
-        data = response.json()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            log(f"[{account_name}] Fetch attempt {attempt + 1}/{max_retries} - calling {url}", log_file)
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=10,
+                impersonate="chrome110",
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        if test_mode:
-            log(f"[{account_name}] ✓ API credentials valid (HTTP {response.status_code})", log_file)
+            log(f"[{account_name}] ✓ Fetch successful (HTTP {response.status_code}, attempt {attempt + 1}/{max_retries})", log_file)
+            if test_mode:
+                log(f"[{account_name}] ✓ API credentials valid (HTTP {response.status_code})", log_file)
 
-        return data
-    except Exception as e:
-        log(f"[{account_name}] Failed to fetch usage: {e}", log_file)
-        return None
+            return data
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s
+                log(f"[{account_name}] ✗ Fetch attempt {attempt + 1}/{max_retries} failed, retrying in {wait_time}s: {e}", log_file)
+                time.sleep(wait_time)
+            else:
+                log(f"[{account_name}] ✗ Failed to fetch usage after {max_retries} attempts: {e}", log_file)
+                return None
 
 
 def should_send_keepalive(usage: Dict, account_name: str, log_file: Optional[str], force: bool = False) -> bool:
@@ -84,9 +95,12 @@ def send_prompt(config_dir: Path, claude_bin: str, model: str, prompt: str, log_
     env = os.environ.copy()
     env["CLAUDE_CONFIG_DIR"] = str(config_dir)
 
+    cmd = [claude_bin, "-p", prompt, "--model", model]
+    log(f"[{config_dir.name}] Sending prompt - cmd={' '.join(cmd)}, config_dir={config_dir}", log_file)
+
     try:
         result = subprocess.run(
-            [claude_bin, "-p", prompt, "--model", model],
+            cmd,
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -97,15 +111,16 @@ def send_prompt(config_dir: Path, claude_bin: str, model: str, prompt: str, log_
         success = result.returncode == 0
         if not success:
             stderr_preview = result.stderr.decode('utf-8', errors='ignore')[:200] if result.stderr else ""
-            log(f"[{config_dir.name}] Failed with code {result.returncode}: {stderr_preview}", log_file)
+            log(f"[{config_dir.name}] ✗ Failed with code {result.returncode}: {stderr_preview}", log_file)
         else:
-            log(f"[{config_dir.name}] Sent prompt: success", log_file)
+            stdout_preview = result.stdout.decode('utf-8', errors='ignore')[:100] if result.stdout else ""
+            log(f"[{config_dir.name}] ✓ Sent prompt successfully: {stdout_preview}", log_file)
         return success
     except subprocess.TimeoutExpired:
-        log(f"[{config_dir.name}] Timeout", log_file)
+        log(f"[{config_dir.name}] ✗ Timeout after 30s", log_file)
         return False
     except Exception as e:
-        log(f"[{config_dir.name}] Error: {e}", log_file)
+        log(f"[{config_dir.name}] ✗ Error: {e}", log_file)
         return False
 
 
@@ -143,6 +158,8 @@ def process_account(account: Dict, config: Dict, test_mode: bool = False) -> Non
 
 def main() -> None:
     """Main execution flow."""
+    import time
+
     parser = argparse.ArgumentParser(
         description="Claude Code keepalive automation"
     )
@@ -155,6 +172,16 @@ def main() -> None:
 
     config = load_config()
     log_file = config.get("log_file")
+
+    # Detect if running from launchd (non-interactive)
+    is_launchd = not sys.stdin.isatty()
+    log(f"Execution context - test_mode={args.test}, is_tty={not is_launchd}, pid={os.getpid()}", log_file)
+
+    # When running from launchd after wake, give network a few seconds to stabilize
+    if not args.test and is_launchd:
+        log("Running from launchd (non-interactive) - waiting 5s for network to stabilize", log_file)
+        time.sleep(5)
+        log("Network stabilization wait complete", log_file)
 
     mode = "test mode" if args.test else "normal mode"
     log(f"Starting keepalive check ({mode})", log_file)

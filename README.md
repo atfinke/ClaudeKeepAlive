@@ -46,10 +46,16 @@ cp config.example.json config.json
 cp com.claude.keepalive.example.plist com.claude.keepalive.plist
 # Edit plist: update python path and script path
 cp com.claude.keepalive.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.claude.keepalive.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude.keepalive.plist
 ```
 
 Find python path: `which python` (while in conda env)
+
+To reload after changes:
+```bash
+launchctl bootout gui/$(id -u)/com.claude.keepalive
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude.keepalive.plist
+```
 
 ## Testing
 
@@ -73,6 +79,6 @@ tail -f ~/logs/claude_keepalive.log
 ## Uninstall
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.claude.keepalive.plist
+launchctl bootout gui/$(id -u)/com.claude.keepalive
 rm ~/Library/LaunchAgents/com.claude.keepalive.plist
 ```
