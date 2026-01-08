@@ -1,3 +1,4 @@
 config.json
 com.claude.keepalive.plist
 .claude/
+com.claude.keepalive.wake-scheduler.plist
