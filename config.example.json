@@ -14,7 +14,15 @@
       "name": "account-2",
       "config_dir": "~/.claude-account-2",
       "org_id": "your-org-id-here",
-      "session_key": "sk-ant-sid01-..."
+      "session_key": "sk-ant-sid01-...",
+      "keepalive_modes": ["five_hour"]
+    },
+    {
+      "name": "weekly-only-account",
+      "config_dir": "~/.claude-weekly",
+      "org_id": "your-org-id-here",
+      "session_key": "sk-ant-sid01-...",
+      "keepalive_modes": ["seven_day"]
     }
   ]
 }

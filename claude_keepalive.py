@@ -73,21 +73,24 @@ def fetch_usage(org_id: str, session_key: str, log_file: Optional[str], test_mod
                 return None
 
 
-def should_send_keepalive(usage: Dict, account_name: str, log_file: Optional[str], force: bool = False) -> bool:
-    """Determine if keepalive prompt should be sent."""
-    five_hour = usage.get("five_hour", {})
-    resets_at = five_hour.get("resets_at")
+def should_send_keepalive(usage: Dict, account_name: str, log_file: Optional[str], keepalive_modes: list, force: bool = False) -> bool:
+    """Determine if keepalive prompt should be sent based on configured modes."""
+    needs_keepalive = False
 
-    if force:
-        log(f"[{account_name}] Test mode - forcing keepalive (reset boundary: {resets_at or 'none'})", log_file)
-        return True
+    for mode in keepalive_modes:
+        mode_data = usage.get(mode, {})
+        resets_at = mode_data.get("resets_at") if mode_data else None
 
-    if not resets_at:
-        log(f"[{account_name}] No reset boundary - sending keepalive", log_file)
-        return True
+        if force:
+            log(f"[{account_name}] Test mode - forcing keepalive for {mode} (reset boundary: {resets_at or 'none'})", log_file)
+            needs_keepalive = True
+        elif not resets_at:
+            log(f"[{account_name}] No {mode} reset boundary - needs keepalive", log_file)
+            needs_keepalive = True
+        else:
+            log(f"[{account_name}] {mode} reset boundary exists: {resets_at}", log_file)
 
-    log(f"[{account_name}] Reset boundary exists: {resets_at}", log_file)
-    return False
+    return needs_keepalive
 
 
 def send_prompt(config_dir: Path, claude_bin: str, model: str, prompt: str, log_file: Optional[str]) -> bool:
@@ -130,6 +133,7 @@ def process_account(account: Dict, config: Dict, test_mode: bool = False) -> Non
     config_dir = Path(account["config_dir"]).expanduser()
     org_id = account["org_id"]
     session_key = account["session_key"]
+    keepalive_modes = account.get("keepalive_modes", ["five_hour"])
     log_file = config.get("log_file")
 
     if not org_id or not session_key:
@@ -140,11 +144,13 @@ def process_account(account: Dict, config: Dict, test_mode: bool = False) -> Non
         log(f"[{name}] Config directory missing: {config_dir}", log_file)
         return
 
+    log(f"[{name}] Checking modes: {keepalive_modes}", log_file)
+
     usage = fetch_usage(org_id, session_key, log_file, test_mode=test_mode, account_name=name)
     if not usage:
         return
 
-    if not should_send_keepalive(usage, name, log_file, force=test_mode):
+    if not should_send_keepalive(usage, name, log_file, keepalive_modes, force=test_mode):
         return
 
     send_prompt(

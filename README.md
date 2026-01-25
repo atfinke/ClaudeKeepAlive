@@ -1,6 +1,6 @@
 # Claude Code Keepalive
 
-Sends minimal keepalive prompts to preserve Claude.ai 5-hour rate limit reset boundaries. Scheduled to run at minute 55 of every hour, only when no reset boundary exists yet.
+Sends minimal keepalive prompts to preserve Claude.ai rate limit reset boundaries. Supports both 5-hour session limits and 7-day (weekly) limits. Scheduled to run at minute 55 of every hour, only when no reset boundary exists yet.
 
 **Note:** When the Mac sleeps, launchd runs missed jobs upon wake. Timing may be delayed, but the script includes network stabilization delays and retry logic to ensure reliability.
 
@@ -41,6 +41,34 @@ For each account, from browser DevTools (Network tab):
 cp config.example.json config.json
 # Edit config.json with your credentials
 ```
+
+#### Keepalive Modes
+
+Each account can specify which limits to track via `keepalive_modes`:
+
+- `"five_hour"` - 5-hour rolling session limit (default)
+- `"seven_day"` - 7-day weekly limit
+
+```json
+{
+  "name": "standard-account",
+  "config_dir": "~/.claude-account",
+  "org_id": "...",
+  "session_key": "..."
+}
+```
+Defaults to `["five_hour"]` if omitted.
+
+```json
+{
+  "name": "weekly-only",
+  "config_dir": "~/.claude-weekly",
+  "org_id": "...",
+  "session_key": "...",
+  "keepalive_modes": ["seven_day"]
+}
+```
+Only tracks weekly limit (useful for accounts without 5-hour limits).
 
 ### 5. Install launchd Agent
 
